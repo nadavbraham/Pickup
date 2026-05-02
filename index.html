@@ -786,114 +786,180 @@ function generateSummaryImage() {
   btn.disabled = true;
 
   const dates = getWeekDates(weekOffset);
-  const W = 600, PAD = 20;
-  const ROW_H = 36, HEADER_H = 80, CHILD_H = 50;
-  const H = HEADER_H + (CHILD_H + 5 * ROW_H + 20) * 2 + PAD * 2 + 40;
+  const EMOJIS_MAP = {'אבוש':'👨','אימוש':'👩','סבתא':'👵','סבא אלון':'👴','סבא טובי':'🧓'};
+
+  // Layout: grid with days as columns, children as rows
+  const W = 700;
+  const PAD = 16;
+  const HEADER_H = 70;   // title
+  const COL_HDR = 52;    // day headers row
+  const ROW_LABEL = 80;  // child label column width
+  const COL_W = (W - PAD*2 - ROW_LABEL) / 5; // 5 day columns
+  const ROW_H = 90;      // height per child row
+  const FOOTER_H = 32;
+  const H = PAD + HEADER_H + COL_HDR + ROW_H * 2 + FOOTER_H + PAD;
 
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // Background
+  // Background gradient
   const grad = ctx.createLinearGradient(0, 0, W, H);
   grad.addColorStop(0, '#1D9E75');
   grad.addColorStop(1, '#185FA5');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // White card
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  roundRect(ctx, PAD, PAD, W - PAD*2, H - PAD*2, 16);
+  // Main white card
+  ctx.fillStyle = 'rgba(255,255,255,0.97)';
+  roundRect(ctx, PAD, PAD, W - PAD*2, H - PAD*2, 14);
   ctx.fill();
 
   // Title
   ctx.fillStyle = '#1a1a1a';
-  ctx.font = 'bold 20px Arial';
+  ctx.font = 'bold 19px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('👨‍👩‍👧‍👦 Pickapp — מי אוסף השבוע?', W/2, PAD + 30);
+  ctx.fillText('Pickapp — מי אוסף השבוע? 👨‍👩‍👧‍👦', W/2, PAD + 28);
   ctx.fillStyle = '#666';
-  ctx.font = '14px Arial';
-  ctx.fillText('שבוע ' + fmt(dates[0]) + ' – ' + fmt(dates[4]), W/2, PAD + 52);
+  ctx.font = '13px Arial';
+  ctx.fillText('שבוע ' + fmt(dates[0]) + ' – ' + fmt(dates[4]), W/2, PAD + 50);
 
-  // Draw children
-  const EMOJIS_MAP = {'אבוש':'👨','אימוש':'👩','סבתא':'👵','סבא אלון':'👴','סבא טובי':'🧓'};
-  let yOff = HEADER_H + PAD;
+  const gridTop = PAD + HEADER_H;
+  const gridLeft = PAD + ROW_LABEL;
 
-  ['lior','roni'].forEach(child => {
-    const childName = child === 'lior' ? '👦 ליאור' : '👧 רוני';
-    const color = child === 'lior' ? '#185FA5' : '#993356';
+  // Day column headers
+  DAYS.forEach((day, i) => {
+    const cx = gridLeft + i * COL_W + COL_W / 2;
+    // Column header background
+    ctx.fillStyle = '#f0f7ff';
+    roundRect(ctx, gridLeft + i * COL_W + 2, gridTop + 2, COL_W - 4, COL_HDR - 4, 8);
+    ctx.fill();
 
-    // Child header
-    ctx.fillStyle = color;
-    ctx.font = 'bold 16px Arial';
-    ctx.textAlign = 'right';
-    ctx.fillText(childName, W - PAD - 10, yOff + 24);
-    yOff += CHILD_H;
+    ctx.fillStyle = '#185FA5';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(day, cx, gridTop + 22);
+    ctx.fillStyle = '#888';
+    ctx.font = '11px Arial';
+    ctx.fillText(fmt(dates[i]), cx, gridTop + 40);
+  });
 
-    // Day rows
+  // Child rows
+  const children = [
+    { key:'lior', label:'ליאורי 💙', emoji:'👦', color:'#185FA5', bg:'#EBF4FF' },
+    { key:'roni', label:'נינייי 🩷', emoji:'👧', color:'#993356', bg:'#FEF0F5' }
+  ];
+
+  children.forEach((child, ri) => {
+    const rowTop = gridTop + COL_HDR + ri * ROW_H;
+
+    // Row background stripe
+    ctx.fillStyle = child.bg;
+    ctx.fillRect(PAD + 1, rowTop, W - PAD*2 - 2, ROW_H);
+
+    // Child label column
+    ctx.fillStyle = child.color;
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(child.emoji, PAD + ROW_LABEL/2, rowTop + 30);
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText(child.label, PAD + ROW_LABEL/2, rowTop + 50);
+
+    // Get all notes for this child this week
+    const childNotes = notes.filter(n =>
+      (n.child === child.key || n.child === 'all') && n.day === 'week'
+    );
+
+    // Day cells
     DAYS.forEach((day, i) => {
-      const key = child + '_' + i;
-      const assigned = assignments[key];
-      const schedule = child === 'lior' ? LIOR_SCHEDULE[i] : null;
+      const k = child.key + '_' + i;
+      const assigned = assignments[k];
+      const schedule = child.key === 'lior' ? LIOR_SCHEDULE[i] : null;
       const deadline = schedule ? schedule.deadline : RONI_DEADLINE;
+      const cx = gridLeft + i * COL_W;
+      const cellPad = 4;
 
-      // Row background
-      ctx.fillStyle = assigned ? '#E8F8F2' : '#f8f8f8';
-      roundRect(ctx, PAD + 10, yOff, W - PAD*2 - 20, ROW_H - 4, 8);
+      // Cell border
+      ctx.strokeStyle = assigned ? '#1D9E75' : '#ddd';
+      ctx.lineWidth = assigned ? 2 : 1;
+      roundRect(ctx, cx + cellPad, rowTop + cellPad, COL_W - cellPad*2, ROW_H - cellPad*2, 8);
+      ctx.fillStyle = assigned ? '#E8F8F2' : 'white';
       ctx.fill();
-
-      if (assigned) {
-        ctx.strokeStyle = '#1D9E75';
-        ctx.lineWidth = 1.5;
-        roundRect(ctx, PAD + 10, yOff, W - PAD*2 - 20, ROW_H - 4, 8);
-        ctx.stroke();
-      }
-
-      // Day label
-      ctx.fillStyle = '#888';
-      ctx.font = '13px Arial';
-      ctx.textAlign = 'right';
-      ctx.fillText('יום ' + day + ' ' + fmt(dates[i]), W - PAD - 20, yOff + 22);
+      ctx.stroke();
 
       // Deadline
       ctx.fillStyle = '#bbb';
-      ctx.font = '11px Arial';
+      ctx.font = '10px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('עד ' + deadline, W/2, yOff + 22);
+      ctx.fillText('עד ' + deadline, cx + COL_W/2, rowTop + 20);
 
       // Assigned person
       if (assigned) {
         const emoji = EMOJIS_MAP[assigned] || '👤';
-        ctx.font = '16px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(emoji + ' ' + assigned, PAD + 20, yOff + 22);
+        ctx.font = '20px Arial';
+        ctx.fillStyle = '#1a1a1a';
+        ctx.textAlign = 'center';
+        ctx.fillText(emoji, cx + COL_W/2, rowTop + 46);
+        ctx.font = 'bold 11px Arial';
+        ctx.fillStyle = '#0F6E56';
+        ctx.fillText(assigned, cx + COL_W/2, rowTop + 64);
       } else {
-        ctx.fillStyle = '#ccc';
-        ctx.font = '13px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText('—', PAD + 20, yOff + 22);
+        ctx.font = '22px Arial';
+        ctx.fillStyle = '#ddd';
+        ctx.textAlign = 'center';
+        ctx.fillText('+', cx + COL_W/2, rowTop + 52);
       }
 
-      yOff += ROW_H;
+      // Day-specific note
+      const dayNote = notes.find(n =>
+        (n.child === child.key || n.child === 'all') && n.day === String(i)
+      );
+      if (dayNote || (schedule && schedule.note)) {
+        const noteText = dayNote ? dayNote.text : schedule.note;
+        ctx.fillStyle = '#185FA5';
+        ctx.font = '9px Arial';
+        ctx.textAlign = 'center';
+        // Truncate
+        const short = noteText.length > 12 ? noteText.substring(0,11)+'…' : noteText;
+        ctx.fillText(short, cx + COL_W/2, rowTop + ROW_H - 8);
+      }
     });
 
-    yOff += 20;
+    // Week-wide note
+    if (childNotes.length > 0) {
+      ctx.fillStyle = '#185FA5';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText('📌 ' + childNotes[0].text, PAD + ROW_LABEL - 4, rowTop + 70);
+    }
   });
+
+  // Grid lines between rows
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD + 1, gridTop + COL_HDR + ROW_H);
+  ctx.lineTo(W - PAD - 1, gridTop + COL_HDR + ROW_H);
+  ctx.stroke();
+
+  // Vertical line after label col
+  ctx.beginPath();
+  ctx.moveTo(PAD + ROW_LABEL, gridTop);
+  ctx.lineTo(PAD + ROW_LABEL, gridTop + COL_HDR + ROW_H * 2);
+  ctx.stroke();
 
   // Footer
   ctx.fillStyle = '#aaa';
   ctx.font = '11px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('נבנה באהבה 💚 Pickapp', W/2, H - PAD - 8);
+  ctx.fillText('נבנה באהבה 💚 Pickapp', W/2, H - PAD - 10);
 
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   document.getElementById('summaryImgPreview').src = dataUrl;
   document.getElementById('summaryImgDownload').href = dataUrl;
   document.getElementById('imagePreviewWrap').style.display = 'block';
-
   btn.textContent = '📸 צור תמונה לשליחה';
   btn.disabled = false;
-
   window._summaryImageUrl = dataUrl;
 }
 
@@ -930,4 +996,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
