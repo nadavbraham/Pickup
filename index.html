@@ -849,8 +849,19 @@ function generateSummaryImage() {
 
       // Child label
       const lx = PAD + ROW_LABEL_W/2;
-      ctx.font = '24px '+F; ctx.fillStyle = '#111'; ctx.textAlign = 'center';
-      ctx.fillText(child.emoji, lx, rowTop+34);
+      // Draw child avatar image
+      const imgEl = document.querySelector('img[alt="' + (child.key==='lior'?'ליאור':'רוני') + '"]');
+      if (imgEl && imgEl.complete) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(lx, rowTop+28, 20, 0, Math.PI*2); ctx.clip();
+        ctx.drawImage(imgEl, lx-20, rowTop+8, 40, 40);
+        ctx.restore();
+        ctx.strokeStyle = child.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(lx, rowTop+28, 20, 0, Math.PI*2); ctx.stroke();
+      } else {
+        ctx.font = '24px '+F; ctx.fillStyle = '#111'; ctx.textAlign = 'center';
+        ctx.fillText(child.emoji, lx, rowTop+34);
+      }
       ctx.font = 'bold 13px '+F; ctx.fillStyle = child.color;
       ctx.fillText(child.label, lx, rowTop+56);
       ctx.font = '13px '+F; ctx.fillText(child.heart, lx, rowTop+76);
@@ -926,8 +937,12 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 window.shareImageWhatsApp = function() {
-  const dates = getWeekDates(weekOffset);
-  let text = '👨‍👩‍👧‍👦 *Pickapp — מי אוסף השבוע?*\n📅 ' + fmt(dates[0]) + ' – ' + fmt(dates[4]) + '\n\n';
+  const todayDay = new Date().getDay();
+  const shareOffset = (todayDay === 5) ? weekOffset + 1 : weekOffset;
+  const dates = getWeekDates(shareOffset);
+  const fridayNote = todayDay === 5 ? '\n⚠️ זוהי תזכורת לשבוע הבא! אנא עדכנו את השיבוצים:\n' : '';
+  let text = '👨‍👩‍👧‍👦 *Pickapp — מי אוסף השבוע?*\n📅 ' + fmt(dates[0]) + ' – ' + fmt(dates[4]) + fridayNote + '\n';
+  text += '🔗 nadavbraham.github.io/Pickup\n\n';
   ['lior','roni'].forEach(child => {
     text += child === 'lior' ? '👦 *ליאור*\n' : '👧 *רוני*\n';
     DAYS.forEach((day, i) => {
